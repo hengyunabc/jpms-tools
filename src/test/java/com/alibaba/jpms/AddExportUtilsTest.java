@@ -14,13 +14,21 @@ public class AddExportUtilsTest {
 
     @Test
     public void testExport() throws ClassNotFoundException {
-        Assertions.assertFalse(
-                Class.forName("jdk.internal.access.JavaLangAccess").getModule().isExported("jdk.internal.misc"));
+        Assertions.assertFalse(String.class.getModule().isExported("jdk.internal.misc"));
 
         AddExportUtils.addExport("java.base", "jdk.internal.misc");
 
-        Assertions.assertTrue(
-                Class.forName("jdk.internal.access.JavaLangAccess").getModule().isExported("jdk.internal.misc"));
+        Assertions.assertTrue(String.class.getModule().isExported("jdk.internal.misc", this.getClass().getModule()));
+    }
+
+    @Test
+    public void testExport2() throws ClassNotFoundException {
+        Assertions.assertFalse(Class.forName("jdk.internal.perf.Perf").getModule().isExported("jdk.internal.perf"));
+
+        AddExportUtils.addExport("java.base", "jdk.internal.perf");
+
+        Assertions.assertTrue(Class.forName("jdk.internal.perf.Perf").getModule().isExported("jdk.internal.perf",
+                this.getClass().getModule()));
     }
 
     @Test

@@ -21,8 +21,15 @@ public class AddExportUtils {
     private static Field javaLangAccess() {
         if (javaLangAccessField == null) {
             try {
-                javaLangAccessField = Class.forName("jdk.internal.access.SharedSecrets")
-                        .getDeclaredField("javaLangAccess");
+                Class<?> clazz = null;
+                try {
+                    clazz = Class.forName("jdk.internal.access.SharedSecrets");
+                } catch (Throwable e) {
+                    // 有某些版本 JDK package 是下面这个
+                    // https://github.com/openjdk/jdk/commit/9ffe7e1205ea42ffccc9622b3e1c5436cc9898f5
+                    clazz = Class.forName("jdk.internal.misc.SharedSecrets");
+                }
+                javaLangAccessField = clazz.getDeclaredField("javaLangAccess");
             } catch (Throwable e) {
                 // ignore
             }
@@ -33,8 +40,21 @@ public class AddExportUtils {
     private static Method addExports() {
         if (addExportsMethod == null) {
             try {
-                addExportsMethod = Class.forName("jdk.internal.access.JavaLangAccess").getDeclaredMethod("addExports",
-                        Module.class, String.class);
+                Class<?> clazz = null;
+                try {
+                    clazz = Class.forName("jdk.internal.access.JavaLangAccess");
+                } catch (Throwable e) {
+                    // 有某些版本 JDK package 是下面这个
+                    // https://github.com/openjdk/jdk/commit/9ffe7e1205ea42ffccc9622b3e1c5436cc9898f5
+                    clazz = Class.forName("jdk.internal.misc.JavaLangAccess");
+                }
+                try {
+                    addExportsMethod = clazz.getDeclaredMethod("addExports", Module.class, String.class);
+                } catch (Throwable e) {
+                    // 有某些版本 JDK 没有 addExports 函数，改用 addExportsToAllUnnamed
+                    // https://github.com/openjdk/jdk/commit/9ffe7e1205ea42ffccc9622b3e1c5436cc9898f5
+                    addExportsMethod = clazz.getDeclaredMethod("addExportsToAllUnnamed", Module.class, String.class);
+                }
             } catch (Throwable e) {
                 // ignore
             }
@@ -53,7 +73,7 @@ public class AddExportUtils {
      */
     public static boolean addExport(Class<?> clazz, String packageToExport) {
         try {
-            return addExport(clazz.getModule(), packageToExport);
+            return exportPackage(clazz.getModule(), packageToExport);
         } catch (Throwable e) {
             // ignore
         }
@@ -65,7 +85,7 @@ public class AddExportUtils {
      * 
      * @see jdk.internal.access.JavaLangAccess#addExports
      */
-    public static boolean addExport(Module module, String packageToExport) {
+    public static boolean exportPackage(Module module, String packageToExport) {
         try {
             Lookup implLookup = UnsafeUtils.implLookup();
             Object o = implLookup.unreflectVarHandle(javaLangAccess()).get();
@@ -88,7 +108,7 @@ public class AddExportUtils {
         try {
             Optional<Module> findModule = ModuleLayer.boot().findModule(moduleName);
             if (findModule.isPresent()) {
-                return addExport(findModule.get(), packageToExport);
+                return exportPackage(findModule.get(), packageToExport);
             }
         } catch (Throwable e) {
             // ignore
